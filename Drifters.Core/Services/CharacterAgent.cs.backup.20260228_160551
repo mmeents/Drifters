@@ -1,0 +1,77 @@
+using System.Text.Json;
+using Drifters.Core.Entities;
+using Drifters.Core.Clients;
+using Drifters.Core.Models;
+using Drifters.Core.Services;
+using Microsoft.Extensions.Logging;
+using Drifters.Core.Constants;
+
+namespace Drifters.Core.Services;
+
+public interface ICharacterAgent {
+    Task<Turn> TakeTurnAsync(Character character, Tick tick, CancellationToken ct = default);
+}
+
+public class CharacterAgent(  
+  IEngineConfig config, 
+  ILogger<CharacterAgent> logger,
+  DriftersDbContext db
+) : ICharacterAgent {
+  private readonly ILogger<CharacterAgent> _logger = logger;
+  private readonly ILmStudioClient _lmStudio = new LmStudioClient(Cx.CharacterLMStudioUrl);
+  private readonly IEngineConfig _config =  config;
+  private readonly DriftersDbContext _db = db;
+  public async Task<Turn> TakeTurnAsync(
+        Character character,
+        Tick tick,
+        CancellationToken ct = default)
+    {
+        var systemPrompt =
+            $"{character.SystemPrompt}\n\n" +
+            $"Objectives: {character.Objectives}\n" +
+            $"Motives: {character.Motives}\n\n" +
+            "You must respond by calling exactly one of the available tools. " +
+            "Do not narrate your action — just call the tool.";
+
+        var userPrompt =
+            $"{tick.SceneDescription}\n\n" +
+            "Your options (choose one by calling the tool): " +
+            "explore(direction), examine(target), take_action(action, target?), speak(message, toCharacter?), wait_and_observe()";
+
+        _logger.LogInformation("Character {Name} taking turn for tick {TickNumber}", character.Name, tick.TickNumber);
+
+        var request = new ChatRequest
+        {
+            Model = character.Model,
+            Input = userPrompt,
+            SystemPrompt = systemPrompt,
+            Temperature = 0.8,
+            Integrations = [],  // MCP tools are implicitly available, no need to specify
+            ContextLength = 8000
+        };
+
+        var startTime = DateTime.UtcNow;
+        var response = await _lmStudio.ChatAsync(request, ct);
+        var endTime = DateTime.UtcNow;
+
+        var toolCall = _db.ToolEventLogs
+            .Where(t => t.CreatedAt >= startTime && t.CreatedAt <= endTime)
+            .OrderByDescending(t => t.CreatedAt)
+            .FirstOrDefault();
+
+        var log = 0;       
+        var reasoning = response.GetText();
+
+        var turn = new Turn {
+            TickId = tick.Id,
+            CharacterId = character.Id,
+            CharacterReasoning = reasoning,
+            ToolCallName = toolCall?.ToolName,
+            ToolCallArguments = toolCall?.ArgumentsJson,
+            ToolCallResult = toolCall?.ResultJson,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        return turn;
+    }
+}
