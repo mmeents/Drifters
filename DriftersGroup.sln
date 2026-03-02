@@ -18,6 +18,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DriftersWorldMCP", "Drifter
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DrifterCharacterMCP", "DrifterCharacterMCP\DrifterCharacterMCP.csproj", "{D717E280-3B6B-4B6F-A33A-0291FD0AA657}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DriftersApp", "DriftersApp\DriftersApp.csproj", "{F7E58985-13F2-4591-907B-A98C96D54349}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -88,6 +90,18 @@ Global
 		{D717E280-3B6B-4B6F-A33A-0291FD0AA657}.Release|x64.Build.0 = Release|Any CPU
 		{D717E280-3B6B-4B6F-A33A-0291FD0AA657}.Release|x86.ActiveCfg = Release|Any CPU
 		{D717E280-3B6B-4B6F-A33A-0291FD0AA657}.Release|x86.Build.0 = Release|Any CPU
+		{F7E58985-13F2-4591-907B-A98C96D54349}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F7E58985-13F2-4591-907B-A98C96D54349}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F7E58985-13F2-4591-907B-A98C96D54349}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{F7E58985-13F2-4591-907B-A98C96D54349}.Debug|x64.Build.0 = Debug|Any CPU
+		{F7E58985-13F2-4591-907B-A98C96D54349}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{F7E58985-13F2-4591-907B-A98C96D54349}.Debug|x86.Build.0 = Debug|Any CPU
+		{F7E58985-13F2-4591-907B-A98C96D54349}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F7E58985-13F2-4591-907B-A98C96D54349}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F7E58985-13F2-4591-907B-A98C96D54349}.Release|x64.ActiveCfg = Release|Any CPU
+		{F7E58985-13F2-4591-907B-A98C96D54349}.Release|x64.Build.0 = Release|Any CPU
+		{F7E58985-13F2-4591-907B-A98C96D54349}.Release|x86.ActiveCfg = Release|Any CPU
+		{F7E58985-13F2-4591-907B-A98C96D54349}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

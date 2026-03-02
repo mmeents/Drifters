@@ -47,9 +47,10 @@ namespace Drifters.Core.Handlers.DrifterEngine {
       if (run.Status != RunStatus.Running) {
         run.Status = RunStatus.Running;
         run.StartedAt = DateTime.UtcNow;
+        _db.Runs.Update(run);
+        await _db.SaveChangesAsync(ct);
       }
-
-      await _db.SaveChangesAsync(ct);
+            
 
       string previousContinuation = await _db.Ticks
         .Where(t => t.RunId == run.Id && t.ContinuationNarrative != null)
@@ -87,58 +88,52 @@ namespace Drifters.Core.Handlers.DrifterEngine {
         } catch (Exception ex) {
           _logger.LogWarning(ex, "Could not load world state for tick {TickNumber}", ticksCompleted);
         }
-
-        // SET DESIGNER: Generate scene
-        try {
-          // inline, no tools calls requested.
-          tick.SceneDescription = await _setDesigner.GenerateSceneAsync(run, tick, previousContinuation, worldState, ct);
-          await _db.SaveChangesAsync(ct);
-        } catch (Exception ex) {
-          _logger.LogError(ex, "Set Designer failed to generate scene for tick {TickNumber}", ticksCompleted);
-          tick.SceneDescription = $"[Scene generation failed: {ex.Message}]";
-          await _db.SaveChangesAsync(ct);
-        }
-
-        _logger.LogInformation("Tick {TickNumber} scene generated ({Chars} chars)", ticksCompleted, tick.SceneDescription.Length);
+        string? firstCharacterActionSummary = null;
 
         // CHARACTER TURNS
         var completedTurns = new List<Turn>();
         foreach (var character in run.Characters.OrderBy(c => c.Rank)) {
-          if (ct.IsCancellationRequested) break;
-          DateTime startTime = DateTime.UtcNow;
-          string? firstCharacterActionSummary = null;
 
-          var maxToolEventLogIdBeforeTurn = await _db.ToolEventLogs.MaxAsync(t => (int?)t.TurnId, ct) ?? 0;
-          try {  // so first agent sees and hears the others last in a pair.
-            var toolCalls = await _db.ToolEventLogs.Where(t => t.TurnId == maxToolEventLogIdBeforeTurn).ToListAsync(ct);
-            StringBuilder sb = new StringBuilder();            
-            bool firstTime = true;
-            foreach (var toolCall in toolCalls) {           
-              if (firstTime) { 
-                firstTime = false;
-                var lastTurnId = toolCall.TurnId??0;
-                var lastTurn = await _db.Turns.FirstOrDefaultAsync(t => t.Id == lastTurnId, ct);
-                if (lastTurn != null) {
-                  string characterName = run.Characters.FirstOrDefault(c => c.Id == lastTurn.CharacterId)?.Name ?? "Unknown Character";
-                  sb.Append($" and {characterName} did: ");
-                }
-              }
-              sb.Append($"{toolCall.ResultJson}; ");
-            }
-            firstCharacterActionSummary = sb.ToString();
+          // SET DESIGNER: Generate scene
+          try {
+            // inline, no tools calls requested.
+            tick.SceneDescription = await _setDesigner.GenerateSceneAsync(run, tick, previousContinuation, worldState, ct);
             await _db.SaveChangesAsync(ct);
           } catch (Exception ex) {
-            _logger.LogWarning(ex, "Failed to associate tool events with turn for character {Name}", character.Name);
+            _logger.LogError(ex, "Set Designer failed to generate scene for tick {TickNumber}", ticksCompleted);
+            tick.SceneDescription = $"[Scene generation failed: {ex.Message}]";
+            await _db.SaveChangesAsync(ct);
           }
 
-          Turn turn;
-          try {
-            turn = await _characterAgent.TakeTurnAsync(character, tick, firstCharacterActionSummary, ct);
-            turn.Character = character;
-            _db.Turns.Add(turn);
-            await _db.SaveChangesAsync(ct);
+          _logger.LogInformation("Tick {TickNumber} scene generated ({Chars} chars)", ticksCompleted, tick.SceneDescription.Length);
 
-            //await LogToolEventAsync(turn, true, null, ct);
+          if (ct.IsCancellationRequested) break;
+          DateTime startTime = DateTime.UtcNow;          
+
+          // lookup first charachter action summary from last runs tool usage if it's not already there. 
+          if (firstCharacterActionSummary == null) {
+            var prevTurn = await _db.Turns
+              .Include(t => t.Character)
+              .Where(t => t.Tick.RunId == run.Id && t.Status == TurnStatus.Completed)
+              .OrderByDescending(t => t.Tick.TickNumber)
+              .ThenByDescending(t => t.Id)
+              .FirstOrDefaultAsync(ct);
+            if (prevTurn != null) {
+              var prevLogs = await _db.ToolEventLogs
+                .Where(t => t.TurnId == prevTurn.Id)
+                .ToListAsync(ct);
+              if (prevLogs.Count > 0) {
+                var sb = new StringBuilder($" and {prevTurn.Character?.Name ?? "Unknown"} did: ");
+                foreach (var log in prevLogs) sb.Append($"{log.ResultJson} ");
+                firstCharacterActionSummary = sb.ToString();
+              }
+            }
+          }
+                   
+          Turn turn;
+          try {            
+            turn = await _characterAgent.TakeTurnAsync(character, tick, firstCharacterActionSummary, ct);
+            firstCharacterActionSummary = $"{turn.ToolCallResult}";            
             completedTurns.Add(turn);
 
             _logger.LogInformation("Character {Name} called {Tool}", character.Name, turn.ToolCallName ?? "(no tool)");
@@ -161,52 +156,49 @@ namespace Drifters.Core.Handlers.DrifterEngine {
             } catch (Exception saveEx) {
               _logger.LogError(saveEx, "Failed to save error turn for character {Name}", character.Name);
             }
-          }
+          }         
 
+          await Task.Delay(_config.DelayBetweenTurnsMs, ct);       
+
+          if (worldState == null) { 
+            var newState = JsonSerializer.Serialize(new {
+              tickNumber = tick.TickNumber,
+              lastScene = tick.SceneDescription[..Math.Min(800, tick.SceneDescription.Length)],
+              lastContinuation = previousContinuation[..Math.Min(800, previousContinuation.Length)],
+              decisions = completedTurns.Select(t => new {
+                character = t.Character?.Name,
+                tool = t.ToolCallName,
+                result = t.ToolCallResult
+              })
+            });
+            await _mediator.Send(new UpdateWorldStateCommand( newState, ""), ct);
+            worldState = await _db.WorldStates
+              .Where(ws => ws.Tick.RunId == run.Id)
+              .OrderByDescending(ws => ws.Tick.TickNumber)
+              .FirstOrDefaultAsync(ct);
+          }
+          // SET DESIGNER: Generate continuation
+          string continuation = string.Empty;
           try {
-            var toolCalls = await _db.ToolEventLogs.Where(t => t.CreatedAt >= startTime && t.TurnId == null).ToListAsync(ct);
-            StringBuilder sb = new StringBuilder();
-            sb.Append($" and {character.Name} does: ");
-            foreach (var toolCall in toolCalls) {
-              toolCall.TurnId = turn.Id;
-              sb.Append($"{toolCall.ResultJson}; ");
-            }
-            firstCharacterActionSummary = sb.ToString();
-            await _db.SaveChangesAsync(ct);
+
+            continuation = await _setDesigner.GenerateContinuationAsync(run, tick, completedTurns, worldState, ct);
+
+            worldState = await _db.WorldStates
+              .Where(ws => ws.Tick.RunId == run.Id)
+              .OrderByDescending(ws => ws.Tick.TickNumber)
+              .FirstOrDefaultAsync(ct);
+
+            tick.ContinuationNarrative = continuation;
+            _db.Ticks.Update(tick);
+            previousContinuation = continuation;
+            await _db.SaveChangesAsync(ct);            
           } catch (Exception ex) {
-            _logger.LogWarning(ex, "Failed to associate tool events with turn for character {Name}", character.Name);
+            _logger.LogError(ex, "Set Designer failed to generate continuation for tick {TickNumber}", ticksCompleted);
+            continuation = $"[Continuation failed: {ex.Message}]";
+            tick.ContinuationNarrative = continuation;
+            await _db.SaveChangesAsync(ct);
           }
-
-          await Task.Delay(_config.DelayBetweenTurnsMs, ct);
-        }
-
-        var newState = JsonSerializer.Serialize(new {
-          tickNumber = tick.TickNumber,
-          lastScene = tick.SceneDescription[..Math.Min(800, tick.SceneDescription.Length)],
-          lastContinuation = previousContinuation[..Math.Min(800, previousContinuation.Length)],
-          decisions = completedTurns.Select(t => new {
-            character = t.Character?.Name,
-            tool = t.ToolCallName,
-            result = t.ToolCallResult
-          })
-        });
-        await _mediator.Send(new UpdateWorldStateCommand( newState, ""), ct);
-
-        // SET DESIGNER: Generate continuation
-        string continuation = string.Empty;
-        try {
-
-          continuation = await _setDesigner.GenerateContinuationAsync(run, tick, completedTurns, worldState, ct);
-
-          tick.ContinuationNarrative = continuation;
-          await _db.SaveChangesAsync(ct);
-        } catch (Exception ex) {
-          _logger.LogError(ex, "Set Designer failed to generate continuation for tick {TickNumber}", ticksCompleted);
-          continuation = $"[Continuation failed: {ex.Message}]";
-          tick.ContinuationNarrative = continuation;
-          await _db.SaveChangesAsync(ct);
-        }
-               
+        }       
         // Complete tick
         try {
           tick.CompletedAt = DateTime.UtcNow;
@@ -215,12 +207,11 @@ namespace Drifters.Core.Handlers.DrifterEngine {
           _logger.LogError(ex, "Failed to mark tick {TickNumber} completed", ticksCompleted);
         }
 
-        previousContinuation = continuation;
+
         ticksCompleted++;
 
         Console.WriteLine($"[Tick {ticksCompleted}/{run.MaxTicks}] {tick.SceneDescription[..Math.Min(120, tick.SceneDescription.Length)]}...");
 
-        //await Task.Delay(_config.DelayBetweenTicksMs, ct);  -- only one pass through the loop in api.
       }
 
       try {

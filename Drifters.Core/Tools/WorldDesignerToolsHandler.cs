@@ -31,22 +31,6 @@ namespace Drifters.Core.Tools {
 
     }
 
-    public async Task<string> UpdateWorldState(string newStatJson, string decisionSummary) {
-      try {
-        using var scope = _serviceScopeFactory.CreateScope();
-        var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
-        var request = new UpdateWorldStateCommand(newStatJson, decisionSummary);
-        var worldState = await mediator.Send(request);
-        var opResult = McpOpResult.CreateSuccess("UpdateWorldState", "Successfully updated world state", worldState?.StateJson);
-        return JsonSerializer.Serialize(opResult);
-      } catch (Exception ex) {
-        _logger.LogError(ex, "Error updating world state");
-        var opResult = McpOpResult.CreateFailure("UpdateWorldState", "Failed to update world state", ex);
-        return JsonSerializer.Serialize(opResult);
-      }
-
-    }
-
     public async Task<string> RecordScene(string sceneDescription) {
       try {
         using var scope = _serviceScopeFactory.CreateScope();
@@ -87,7 +71,6 @@ namespace Drifters.Core.Tools {
 
   public interface IWorldDesignerToolsHandler {
     public Task<string> GetWorldState();    
-    public Task<string> UpdateWorldState(string newStatJson, string decisionSummary);
     public Task<string> RecordScene(string sceneDescription);
      public Task<string> GetTickHistory(int maxTicks);
   }

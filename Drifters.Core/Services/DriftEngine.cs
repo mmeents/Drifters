@@ -117,7 +117,7 @@ public class DriftEngine(
                 try
                 {
                     turn = await _characterAgent.TakeTurnAsync(character, tick, firstCharacterActionSummary, ct);
-                    turn.Character = character;
+
                     db.Turns.Add(turn);
                     await SaveAsync(ct);
 

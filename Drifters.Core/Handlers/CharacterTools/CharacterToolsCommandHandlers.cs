@@ -2,13 +2,7 @@
 using Drifters.Core.Entities;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
-using static System.Collections.Specialized.BitVector32;
 
 namespace Drifters.Core.Handlers.CharacterTools {
   internal class CharacterToolsCommandHandlers {}
@@ -19,21 +13,23 @@ namespace Drifters.Core.Handlers.CharacterTools {
   public class ExploreCommandHandler(DriftersDbContext dbContext) : IRequestHandler<ExploreCommand, string> {
     private readonly DriftersDbContext _db = dbContext;
     public async Task<string> Handle(ExploreCommand request, CancellationToken ct) {
-      var activeRun = await _db.Runs
-            .Where(r => r.Status == RunStatus.Running)
-            .OrderByDescending(r => r.StartedAt)
-            .FirstOrDefaultAsync(ct);
+      
+      var activeTurn = await _db.Turns
+        .Include(t => t.Character)
+        .Where(t => t.Status == TurnStatus.InProgress)
+        .OrderByDescending(t => t.CreatedAt)
+        .FirstOrDefaultAsync(ct);
+      string characterName = activeTurn?.Character.Name ?? "Unknown Character";
+      var result = $"You explore {request.direction}.";
+      var logResult = $"{characterName} explores {request.direction}.";
 
-      if (activeRun == null) return null;
-
-      var result = $"Exploring {request.direction}.";      
       try {
         var log = new ToolEventLog {
-          TurnId = null,
+          TurnId = activeTurn?.Id,
           ServerLabel = Cx.CharacterServerLabel,
           ToolName = Cx.ExploreTool,
           ArgumentsJson = JsonSerializer.Serialize(new { request.direction }),
-          ResultJson = result,
+          ResultJson = logResult,
           Success = true,
           ErrorMessage = null,
           CreatedAt = DateTime.UtcNow
@@ -55,21 +51,23 @@ namespace Drifters.Core.Handlers.CharacterTools {
     private readonly DriftersDbContext _db = dbContext;
     public async Task<string> Handle(ExamineCommand request, CancellationToken ct) {
 
-      var activeRun = await _db.Runs
-            .Where(r => r.Status == RunStatus.Running)
-            .OrderByDescending(r => r.StartedAt)
-            .FirstOrDefaultAsync(ct);
+      var activeTurn = await _db.Turns
+        .Include(t => t.Character)
+        .Where(t => t.Status == TurnStatus.InProgress)
+        .OrderByDescending(t => t.CreatedAt)
+        .FirstOrDefaultAsync(ct);
 
-      if (activeRun == null) return null;      
-
-      var result = $"You examine {request.target} closely.";      
+      if (activeTurn == null) return null;      
+      string characterName = activeTurn.Character.Name;
+      var result = $"You examined {request.target}.";      
+      var logResult = $"{characterName} examined {request.target}.";
       try {
         var log = new ToolEventLog {
-          TurnId = null,
+          TurnId = activeTurn?.Id,
           ServerLabel = Cx.CharacterServerLabel,
           ToolName = Cx.ExamineTool,
           ArgumentsJson = JsonSerializer.Serialize(new { request.target }),
-          ResultJson = result,
+          ResultJson = logResult,
           Success = true,
           ErrorMessage = null,
           CreatedAt = DateTime.UtcNow
@@ -90,18 +88,26 @@ namespace Drifters.Core.Handlers.CharacterTools {
   public class TakeActionCommandHandler(DriftersDbContext dbContext) : IRequestHandler<TakeActionCommand, string> {
     private readonly DriftersDbContext _db = dbContext;
     public async Task<string> Handle(TakeActionCommand request, CancellationToken ct) {
+
+      var activeTurn = await _db.Turns
+        .Include(t => t.Character)
+        .Where(t => t.Status == TurnStatus.InProgress)
+        .OrderByDescending(t => t.CreatedAt)
+        .FirstOrDefaultAsync(ct);
+      string characterName = activeTurn?.Character.Name ?? "Unknown Character";
       var description = request.target != null
                   ? $"You {request.action} {request.target}."
                   : $"You {request.action}.";
       var result = $"{description} The consequences ripple through the scene.";
-            
+      var logResult = $"{characterName} {request.action}" + (request.target != null ? $" {request.target}" : "") + ".";
+
       try {
         var log = new ToolEventLog {
-          TurnId = null,
+          TurnId = activeTurn?.Id,
           ServerLabel = Cx.CharacterServerLabel,
           ToolName = Cx.TakeActionTool,
           ArgumentsJson = JsonSerializer.Serialize(new { request.action, request.target }),
-          ResultJson = result,
+          ResultJson = logResult,
           Success = true,
           ErrorMessage = null,
           CreatedAt = DateTime.UtcNow
@@ -122,15 +128,27 @@ namespace Drifters.Core.Handlers.CharacterTools {
   public class SpeakCommandHandler(DriftersDbContext dbContext) : IRequestHandler<SpeakCommand, string> {
       private readonly DriftersDbContext _db = dbContext;
       public async Task<string> Handle(SpeakCommand request, CancellationToken ct) {
+
+      var activeTurn = await _db.Turns
+        .Include(t => t.Character)
+        .Where(t => t.Status == TurnStatus.InProgress)
+        .OrderByDescending(t => t.CreatedAt)
+        .FirstOrDefaultAsync(ct);
+
+      string characterName = activeTurn?.Character.Name ?? "Unknown Character";
+
       var addressee = request.toCharacter != null ? $" to {request.toCharacter}" : " aloud";
       var result = $"You say{addressee}: \"{request.message}\". The words hang in the air, and something stirs in response.";
+      string logResult = request.toCharacter != null
+                  ? $"{characterName} said to {request.toCharacter}: \"{request.message}\"."
+                  : $"{characterName} said aloud: \"{request.message}\".";
       try {
         var log = new ToolEventLog {
-          TurnId = null,
+          TurnId = activeTurn?.Id,
           ServerLabel = Cx.CharacterServerLabel,
           ToolName = Cx.SpeakTool,
           ArgumentsJson = JsonSerializer.Serialize(new { request.message, request.toCharacter }),
-          ResultJson = result,
+          ResultJson = logResult,
           Success = true,
           ErrorMessage = null,
           CreatedAt = DateTime.UtcNow
@@ -149,22 +167,25 @@ namespace Drifters.Core.Handlers.CharacterTools {
   public class WaitAndObserveCommandHandler(DriftersDbContext dbContext) : IRequestHandler<WaitAndObserveCommand, string> {
     private readonly DriftersDbContext _db = dbContext;
     public async Task<string> Handle(WaitAndObserveCommand request, CancellationToken ct) {
-      var activeRun = await _db.Runs
-      .Where(r => r.Status == RunStatus.Running)
-      .OrderByDescending(r => r.StartedAt)
-      .FirstOrDefaultAsync(ct);
+      var activeTurn = await _db.Turns
+        .Include(t => t.Character)
+        .Where(t => t.Status == TurnStatus.InProgress)
+        .OrderByDescending(t => t.CreatedAt)
+        .FirstOrDefaultAsync(ct);
 
-      if (activeRun == null) return null;     
+      if (activeTurn == null) return null;     
             
+      string characterName = activeTurn?.Character.Name ?? "Unknown Character";
       var observation = "You wait and observe. The silence itself tells a story.";
+      string logResult = $"{characterName} waited and observed.";
       
       try {
         var log = new ToolEventLog {
-          TurnId = null,
+          TurnId = activeTurn?.Id,
           ServerLabel = Cx.CharacterServerLabel,
           ToolName = Cx.WaitAndObserveTool,
           ArgumentsJson = JsonSerializer.Serialize(new { action = "wait_and_observe" }),
-          ResultJson = observation,
+          ResultJson = logResult,
           Success = true,
           ErrorMessage = null,
           CreatedAt = DateTime.UtcNow

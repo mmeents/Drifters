@@ -13,9 +13,6 @@ namespace Drifters.Core.Tools {
     [McpTool("get-world-state", "Get the current world state as a JSON blob.")]
     public static async Task<string> GetWorldStateAsync() => await GetTools().GetWorldState();
 
-    [McpTool("update-world-state", "Update the world state with the given JSON blob.")]
-    public static async Task<string> UpdateWorldStateAsync(string newStateJson, string decisionSummary) => await GetTools().UpdateWorldState(newStateJson, decisionSummary);
-
     [McpTool("record-scene", "Record a new scene with the given description.")]
     public static async Task<string> RecordSceneAsync(string sceneDescription) => await GetTools().RecordScene(sceneDescription);
 

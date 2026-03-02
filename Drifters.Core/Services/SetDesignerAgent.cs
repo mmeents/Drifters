@@ -20,8 +20,10 @@ namespace Drifters.Core.Services {
           CancellationToken ct = default);
   }
 
-  public class SetDesignerAgent() : ISetDesignerAgent {
+  public class SetDesignerAgent(DriftersDbContext db) : ISetDesignerAgent {
+    private readonly DriftersDbContext _db = db;
     private readonly ILmStudioClient _lmStudio = new LmStudioClient(Cx.WorldStateLMStudioUrl, "sk-lm-RoRhi6Xu:By0BGm03OfrDyZYcub8b");
+
 
     public async Task<string> GenerateSceneAsync(
         Run run,
@@ -82,7 +84,34 @@ namespace Drifters.Core.Services {
             temperature: 0.7,
             ct: ct);
 
-        return response.GetText();
+        string fulltext = response.GetText();
+        if (fulltext.Contains("Update-world-state")) {
+          string[] parts = fulltext.Split("Update-world-state");
+          string backHalf = parts[1];
+          if (!string.IsNullOrWhiteSpace(backHalf)) {
+            fulltext = parts[0];
+            string newStateJson = backHalf.Trim();
+
+            if (worldState != null) {
+              // Update existing
+              worldState.StateJson = newStateJson;
+              worldState.DecisionSummary = $"Tick {tick.TickNumber} continuation";
+              _db.WorldStates.Update(worldState);
+            } else {
+              // First tick - create it
+              worldState = new WorldState {
+                TickId = tick.Id,
+                StateJson = newStateJson,
+                DecisionSummary = $"Tick {tick.TickNumber} initial",
+                CreatedAt = DateTime.UtcNow
+              };
+              _db.WorldStates.Add(worldState);
+            }
+            await _db.SaveChangesAsync(ct);
+          }
+        }
+
+      return fulltext;
     }
   }
 }

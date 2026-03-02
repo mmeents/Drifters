@@ -29,6 +29,17 @@ public class CharacterAgent(
     string? firstCharacterMoves = null,
     CancellationToken ct = default
   ) {
+
+    // PRE-CREATE turn so MCP tools can resolve active character via InProgress status
+    var turn = new Turn {
+      TickId = tick.Id,
+      CharacterId = character.Id,
+      Status = TurnStatus.InProgress,
+      CreatedAt = DateTime.UtcNow
+    };
+    _db.Turns.Add(turn);
+    await _db.SaveChangesAsync(ct);
+
     // System prompt: personality + objectives + motives + hard instruction to call a tool
     var systemPrompt =
       $"{character.SystemPrompt}\n\n" +
@@ -52,32 +63,31 @@ public class CharacterAgent(
       ContextLength = 8000,
       Integrations = [new PluginIntegration{ Id="mcp/driftercharactermcp" } ]    
       // No Integrations needed — CharacterMCP is installed natively on the LM Studio instance
-    };
+    };   
 
-    var startTime = DateTime.UtcNow;
-    var response = await _lmStudio.ChatAsync(request, ct);
+    var response = await _lmStudio.ChatAsync(request, ct);   //  --  this is the call.
 
     var toolCalls = await _db.ToolEventLogs
-      .Where(t => t.CreatedAt >= startTime)
+      .Where(t => t.TurnId == turn.Id)
       .OrderByDescending(t => t.Id)
       .ToListAsync(ct);
 
-    string toolNames = string.Join(", ", toolCalls.Select(t => t.ToolName).Distinct());
-    string toolCallNames = string.Join(", ", toolCalls.Select(t => t.ArgumentsJson).Distinct());
-    string toolCallResults = string.Join(", ", toolCalls.Select(t => t.ResultJson).Distinct());
+    string toolNames = string.Join(" ", toolCalls.Select(t => t.ToolName).Distinct());
+    string toolCallNames = string.Join(" ", toolCalls.Select(t => t.ArgumentsJson).Distinct());
+    string toolCallResults = string.Join(" ", toolCalls.Select(t => t.ResultJson).Distinct());
+    toolCallResults = toolCallResults.Replace("You", character.Name); 
 
     var reasoning = response.GetText();
-
-    var turn = new Turn {
-      TickId = tick.Id,
-      CharacterId = character.Id,
-      CharacterReasoning = reasoning,
-      ToolCallName = toolNames,
-      ToolCallArguments = toolCallNames,
-      ToolCallResult = toolCallResults,
-      CreatedAt = DateTime.UtcNow
-    };
-
+    turn.SystemPrompt = systemPrompt;
+    turn.Prompt = userPrompt;
+    turn.CharacterReasoning = reasoning;
+    turn.ToolCallName = toolNames;
+    turn.ToolCallArguments = toolCallNames;
+    turn.ToolCallResult = toolCallResults;
+    turn.Status = TurnStatus.Completed;
+    turn.CompletedAt = DateTime.UtcNow;
+    _db.Turns.Update(turn);
+    await _db.SaveChangesAsync(ct);
     return turn;
   }
 }

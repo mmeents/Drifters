@@ -42,5 +42,14 @@ namespace Drifters.Core {
       return services;
     }
 
+    public static IServiceCollection AddDrifterAppCore(this IServiceCollection services, IConfiguration configuration) {
+      services.AddCore(configuration);
+      services.AddScoped<ICharacterToolsHandler, CharacterToolsHandler>();
+      services.AddScoped<IEngineConfig, EngineConfig>();
+      services.AddScoped<ICharacterAgent, CharacterAgent>();
+      services.AddScoped<ISetDesignerAgent, SetDesignerAgent>();
+      return services;
+    }
+
   }
 }

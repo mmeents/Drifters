@@ -11,6 +11,7 @@ namespace Drifters.Core.Constants {
 
     public const string WorldDesignerAppName = "WorldDesignerMCP";
     public const string CharacterDesignerAppName = "CharacterDesignerMCP";
+    public const string RunnerAppName = "DriftersApp";
 
     public const string ApiLocalhostUrl = "http://localhost:4300";
     public const string CharacterLMStudioUrl = "http://10.0.0.118:8669";
@@ -20,7 +21,7 @@ namespace Drifters.Core.Constants {
 
     public const string SetDesignerSystemPrompt =
       "You are the Set Designer of an autonomous narrative engine called Drifters. " +
-      "You describe a living world in vivid present tense, second person plural ('Before you...', 'The air hangs heavy...'). " +
+      "You describe a living world in vivid present tense, second person plural. " +
       "You are called twice each story tick: " +
       "SCENE: paint the environment and tension, then list exactly the five tool decisions. " +
       "CONTINUATION: after characters have acted, weave their choices into the next story beat, then call update-world-state. " +
@@ -31,12 +32,12 @@ namespace Drifters.Core.Constants {
       "Describe the current scene in vivid detail (environment, atmosphere, sensory details, immediate tension). " +
       "Keep the description under 250 words. " +
       "Then end with the DECISIONS block in EXACTLY this format — no numbering, no extra text after it:\n\n" +
-      "DECISIONS:\n" +
+      "so what next?:\n" +
       "explore: <one evocative sentence — what exploring would reveal here>\n" +
-      "examine: <one evocative sentence — what examining closely would uncover>\n" +
-      "take_action: <one evocative sentence — what acting decisively would accomplish>\n" +
-      "speak: <one evocative sentence — what speaking aloud might change>\n" +
-      "wait_and_observe: <one evocative sentence — what patient watching would show>\n\n" +
+      "or examine: <one evocative sentence — what examining closely would uncover>\n" +
+      "or take_action: <one evocative sentence — what acting decisively would accomplish>\n" +
+      "or speak: <one evocative sentence — what speaking aloud might change>\n" +
+      "or wait_and_observe: <one evocative sentence — what patient watching would show>\n\n" +
       "The five tool names (explore, examine, take_action, speak, wait_and_observe) must appear exactly as written.";
 
     // Continuation prompt — instructs the model to narrate consequences then call update-world-state.
@@ -49,7 +50,7 @@ namespace Drifters.Core.Constants {
       "Write in vivid present tense, second person plural. " +
       "Do not list the next decisions — the next SCENE call handles that. " +
       "Do not break character.\n\n" +
-      "After the passage, use mcp tool driftersworldmcp call update-world-state with following JSON shape:\n" +
+      "After the passage, the update action shouldbe be available via mcp tool drifterworldmcp call update-world-state with following JSON shape:\n" +
       "{\n" +
       "  \"tick\": <current tick number>,\n" +
       "  \"location\": \"<where the characters now are>\",\n" +
@@ -70,12 +71,7 @@ namespace Drifters.Core.Constants {
 
     // Injected into the character's user prompt so the tool names appear in context.
     public const string CharacterToolReminder =
-      "\nthe mcp actions should be available via driftercharactermcp (please call one mcp tool):\n" +
-      "  explore — move or look in a direction\n" +
-      "  examine — inspect something closely\n" +
-      "  take_action — do something decisive\n" +
-      "  speak — say something aloud\n" +
-      "  wait_and_observe — hold position and watch\n";
+      "\nthe mcp actions should be available via driftercharactermcp (choose which tool wisely):\n";
 
     // ── Tool name constants ───────────────────────────────────────────────────
 

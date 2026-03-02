@@ -115,7 +115,7 @@ namespace Drifters.Core.Clients {
         SystemPrompt = systemPrompt,
         Temperature = temperature,
         ContextLength = contextLength,
-        Integrations = [new PluginIntegration { Id = "mcp/driftersworldmcp"}]        
+        Integrations = [new PluginIntegration { Id = "mcp/drifterworldmcp"}]        
       };
       var req = ChatRequest.Simple(model, prompt, systemPrompt);
       req.Temperature = temperature;
