@@ -29,6 +29,7 @@ namespace Drifters.Core.Entities {
     public RunStatus Status { get; set; } = RunStatus.Pending;
     public DateTime CreatedAt { get; set; }       
     public DateTime? CompletedAt { get; set; }
+    public ICollection<CharacterDto> Characters { get; set; } = [];
   }
 
   public static class RunExtensions {
@@ -40,7 +41,8 @@ namespace Drifters.Core.Entities {
       MaxTicks = run.MaxTicks,
       Status = run.Status,
       CreatedAt = run.CreatedAt,
-      CompletedAt = run.CompletedAt
+      CompletedAt = run.CompletedAt,
+      Characters = run.Characters.Select(c => c.ToDto()).ToList()
     };
   }
 

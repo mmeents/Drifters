@@ -17,7 +17,7 @@ namespace Drifters.Core.Handlers.DrifterEngine {
     }
 
     public async Task<List<RunDto>> Handle(GetRunsQuery request, CancellationToken cancellationToken) {
-      var runs = await _db.Runs.OrderByDescending(r => r.Id).ToListAsync(cancellationToken);
+      var runs = await _db.Runs.Include(r => r.Characters).OrderByDescending(r => r.Id).ToListAsync(cancellationToken);
       return runs.Select(r => r.ToDto()).ToList();
     }
   }

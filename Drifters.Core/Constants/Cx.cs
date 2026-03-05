@@ -14,8 +14,16 @@ namespace Drifters.Core.Constants {
     public const string RunnerAppName = "DriftersApp";
 
     public const string ApiLocalhostUrl = "http://localhost:4300";
+
     public const string CharacterLMStudioUrl = "http://10.0.0.118:8669";
-    public const string WorldStateLMStudioUrl = "http://10.0.0.247:8669";
+    public const string CharacterLMStudioKey = "sk-lm-njtLGuVe:Vcbn9IXvEghho3wt9TCx";                                              
+
+    public const string WorldStateLMStudioUrl = "http://10.0.0.118:8669";
+    public const string WorldStateLMStudioKey = "sk-lm-njtLGuVe:Vcbn9IXvEghho3wt9TCx";
+
+    //public const string WorldStateLMStudioUrl = "http://10.0.0.247:8669";  -- local
+    //public const string WorldStateLMStudioKey = "sk-lm-RoRhi6Xu:By0BGm03OfrDyZYcub8b";
+
 
     // ── Set Designer ─────────────────────────────────────────────────────────
 
@@ -31,8 +39,7 @@ namespace Drifters.Core.Constants {
     public const string SetDesignerSceneQuestion =
       "Describe the current scene in vivid detail (environment, atmosphere, sensory details, immediate tension). " +
       "Keep the description under 250 words. " +
-      "Then end with the DECISIONS block in EXACTLY this format — no numbering, no extra text after it:\n\n" +
-      "so what next?:\n" +
+      "Then end with the DECISIONS block in EXACTLY this format — no numbering, no extra text after it:\n\n" +      
       "explore: <one evocative sentence — what exploring would reveal here>\n" +
       "or examine: <one evocative sentence — what examining closely would uncover>\n" +
       "or take_action: <one evocative sentence — what acting decisively would accomplish>\n" +

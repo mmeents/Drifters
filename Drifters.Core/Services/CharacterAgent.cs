@@ -19,7 +19,7 @@ public class CharacterAgent(
   DriftersDbContext db
 ) : ICharacterAgent {
   private readonly ILogger<CharacterAgent> _logger = logger;
-  private readonly ILmStudioClient _lmStudio = new LmStudioClient(Cx.CharacterLMStudioUrl, "sk-lm-njtLGuVe:Vcbn9IXvEghho3wt9TCx");
+  private readonly ILmStudioClient _lmStudio = new LmStudioClient(Cx.CharacterLMStudioUrl, Cx.CharacterLMStudioKey);
   private readonly IEngineConfig _config = config;
   private readonly DriftersDbContext _db = db;
 

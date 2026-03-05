@@ -22,7 +22,7 @@ namespace Drifters.Core.Services {
 
   public class SetDesignerAgent(DriftersDbContext db) : ISetDesignerAgent {
     private readonly DriftersDbContext _db = db;
-    private readonly ILmStudioClient _lmStudio = new LmStudioClient(Cx.WorldStateLMStudioUrl, "sk-lm-RoRhi6Xu:By0BGm03OfrDyZYcub8b");
+    private readonly ILmStudioClient _lmStudio = new LmStudioClient(Cx.WorldStateLMStudioUrl, Cx.WorldStateLMStudioKey);
 
 
     public async Task<string> GenerateSceneAsync(
